@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: AI Personalized Assistant API
+  version: 1.0.0
+  description: API spec for core endpoints: auth, conversations, RAG-powered converse, document ingestion, memories, and profile.
+servers:
+  - url: https://api.example.com
+    description: Production server (replace with real URL)
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        timezone:
+          type: string
+        preferences:
+          type: object
+          description: JSON object with user preferences
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        title:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        author:
+          type: string
+          enum: [user, assistant, system]
+        text:
+          type: string
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+    ConverseRequest:
+      type: object
+      required: [message]
+      properties:
+        conversation_id:
+          type: string
+        message:
+          type: string
+        stream:
+          type: boolean
+          description: Stream tokens from LLM if supported
+    ConverseResponse:
+      type: object
+      properties:
+        message:
+          $ref: '#/components/schemas/Message'
+        actions:
+          type: array
+          items:
+            type: object
+            description: Structured actions returned by the assistant
+paths:
+  /api/auth/signup:
+    post:
+      summary: Sign up with email/password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /api/auth/signin:
+    post:
+      summary: Sign in and receive JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+  /api/v1/converse:
+    post:
+      summary: Send a message to the assistant and receive a reply
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConverseRequest'
+      responses:
+        '200':
+          description: Assistant response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConverseResponse'
+  /api/v1/conversations:
+    get:
+      summary: List conversations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create a new conversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /api/v1/conversations/{conversationId}/messages:
+    get:
+      summary: Get messages for a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: conversationId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+  /api/v1/documents/upload:
+    post:
+      summary: Upload a document for ingestion (RAG)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                metadata:
+                  type: string
+      responses:
+        '202':
+          description: Accepted; ingestion enqueued
+  /api/v1/memories:
+    get:
+      summary: List retrieved memories / user memories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /api/v1/memories/{memoryId}/forget:
+    post:
+      summary: Forget (delete) a specific memory for a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: memoryId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+  /api/v1/profile:
+    get:
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
